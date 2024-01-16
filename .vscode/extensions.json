@@ -1,0 +1,11 @@
+{
+    "recommendations": [
+        "roblourens.vscode-nand2tetris-hdl",
+        "amadeann.jack-language-syntax-highlighting",
+        "visualstudioexptteam.vscodeintellicode",
+        "ms-python.python",
+        "github.vscode-pull-request-github",
+        "mhutchie.git-graph",
+        "github.vscode-github-actions"
+    ]
+}

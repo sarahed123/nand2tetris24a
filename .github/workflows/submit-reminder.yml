@@ -1,0 +1,47 @@
+name: 'N2T Submit Reminder'
+# make some changes to this file (e.g., delete this line) and commit/push in order for the workflow to work for your repository fork
+on:
+  schedule:
+    #- cron: '0,5,10,15,20,25,30,35,40,45,50,55 * * * *' #test
+    - cron: '0 5 17 10 *' # 21/3 00
+    - cron: '0 5 24 10 *' # 01
+    - cron: '0 5 31 10 *' # 04
+    - cron: '0 5 7 11 *' # py
+    - cron: '0 5 21 11 *' # 06
+    - cron: '0 5 5 12 *'  # 07
+    - cron: '0 5 19 12 *' # 08
+    - cron: '0 5 26 12 *' # 09
+    - cron: '0 5 9 1 *' # 10
+    - cron: '0 5 23 1 *' # 11
+
+jobs:
+  submit_schedule:
+    runs-on: ubuntu-latest
+    steps:
+      - if: github.event.schedule == '0,5,10,15,20,25,30,35,40,45,50,55 * * * *'
+        run: echo "PROJECT=test" >> $GITHUB_ENV
+      - if: github.event.schedule == '0 5 17 10 *'
+        run: echo "PROJECT=00" >> $GITHUB_ENV
+      - if: github.event.schedule == '0 5 24 10 *'
+        run: echo "PROJECT=01" >> $GITHUB_ENV
+      - if: github.event.schedule == '0 5 31 10 *'
+        run: echo "PROJECT=04" >> $GITHUB_ENV
+      - if: github.event.schedule == '0 5 7 11 *'
+        run: echo "PROJECT=py (python)" >> $GITHUB_ENV
+      - if: github.event.schedule == '0 5 21 11 *'
+        run: echo "PROJECT=06" >> $GITHUB_ENV
+      - if: github.event.schedule == '0 5 5 12 *'
+        run: echo "PROJECT=07" >> $GITHUB_ENV
+      - if: github.event.schedule == '0 5 19 12 *'
+        run: echo "PROJECT=08" >> $GITHUB_ENV
+      - if: github.event.schedule == '0 5 26 12 *'
+        run: echo "PROJECT=09" >> $GITHUB_ENV
+      - if: github.event.schedule == '0 5 9 1 *'
+        run: echo "PROJECT=10" >> $GITHUB_ENV
+      - if: github.event.schedule == '0 5 23 1 *'
+        run: echo "PROJECT=11" >> $GITHUB_ENV
+      - name: Reminder
+        run: |
+          printf "Good Morning,\nThis is a kind reminder from your Nand2Tetris course, that today project ${{ env.PROJECT }} is due.\nGood luck!"
+
+

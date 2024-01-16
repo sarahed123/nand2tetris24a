@@ -1,0 +1,197 @@
+name: 'N2T Auto Tester'
+ 
+on: 
+  push: 
+    branches: [00, 01, 04, py, 06, 07, 08, 09, 10, 11]
+  pull_request: 
+    branches: [main, 00, 01, 04, py, 06, 07, 08, 09, 10]
+    types: [opened]
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      #matrix:
+      #  python-version: ['3.10']
+      #  os: [ubuntu-latest] #, windows-latest]
+    runs-on: ubuntu-latest # ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+            fetch-depth: 3 # needed for project 00 test
+      - name: Set up Python 3.11 # ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11 # ${{ matrix.python-version }}
+      - name: Install Python dependencies
+        uses: py-actions/py-dependency-install@v4
+      - name: Enable course tools scripts
+        # if: startsWith(matrix.os, 'ubuntu')
+        run: chmod +x tools/*.sh
+      #- name: Take care of utf-8 stuff for windows
+      #  if: startsWith(matrix.os, 'windows')
+      #  run: |
+      #    chcp 65001 #set code page to utf-8
+      #    echo ("BRANCH_NAME=" + $env:GITHUB_REF.replace('refs/heads/', '')) >> $env:GITHUB_ENV
+      - name: get repo name
+        run: echo "REPO_NAME=${{ github.event.repository.name }}" >> $GITHUB_ENV
+      - name: Get branch name (push) 
+        if: github.event_name != 'pull_request' # && startsWith(matrix.os, 'ubuntu')
+        run: echo "BRANCH_NAME=$(echo ${GITHUB_REF#refs/heads/} | tr / -)" >> $GITHUB_ENV
+      - name: Get branch name (pull request)
+        if: github.event_name == 'pull_request' # && startsWith(matrix.os, 'ubuntu')
+        run: echo "BRANCH_NAME=$(echo ${GITHUB_HEAD_REF} | tr / -)" >> $GITHUB_ENV
+      - name: Clone the upstream repo
+        uses: actions/checkout@v3
+        with:
+          repository: jce-il/${{ env.REPO_NAME }}
+          fetch-depth: 1 # default
+          path: upstream
+          token: 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
+      - name: get the origin test_XX.py file with a personal acess token (Settings/Developer Settings)
+        run : |
+          cd upstream
+          # git checkout HEAD ./projects/${{ env.BRANCH_NAME }}/test_${{ env.BRANCH_NAME }}.py
+          cp ./projects/${{ env.BRANCH_NAME }}/test_${{ env.BRANCH_NAME }}.py ${{ github.workspace }}/projects/${{ env.BRANCH_NAME }}/test_${{ env.BRANCH_NAME }}.py
+      - name: Run Linter flake8
+        uses: py-actions/flake8@v2
+        continue-on-error: true
+        if: ${{ env.BRANCH_NAME }} == '06' || ${{ env.BRANCH_NAME }} == '07' || ${{ env.BRANCH_NAME }} == '08' || ${{ env.BRANCH_NAME }} == '10' || ${{ env.BRANCH_NAME }} == '11' ||
+        with:
+          path: ./projects/${{ env.BRANCH_NAME }}
+      - name: Run the project auto tester
+        # if: ${{ github.event_name == 'push' }} # always() &&
+        shell: bash # for the piping used here
+        run: |
+          cd ./projects/${{ env.BRANCH_NAME }}
+          python -m pytest -qrfsp test_${{ env.BRANCH_NAME }}.py | tee ../../test-result.txt ; test ${PIPESTATUS[0]} -eq 0 
+        
+      - uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-result
+          path: test-result.txt
+          if-no-files-found: error
+
+  grade:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions: write-all
+    if: ${{ always() && github.event_name == 'pull_request' }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1 #default
+      - uses: actions/download-artifact@v3
+        with:
+          name: test-result
+      - name: Get branch name (pull request)
+        run: echo "BRANCH_NAME=$(echo ${GITHUB_HEAD_REF} | tr / -)" >> $GITHUB_ENV
+      - name: Bump version and push tag
+        id: tag_version
+        uses: mathieudutour/github-tag-action@v6.1
+        with:
+          #release_branches: 00, 01, 04, py, 06, 07, 08, 09, 10, 11
+          tag_prefix: 'submit${{ env.BRANCH_NAME }}-'
+          #default_bump: submit
+          github_token: ${{ secrets.GITHUB_TOKEN }} 
+      - name: Run Grader
+        run: |
+          results=$(cat test-result.txt | tee >(grep SKIPPED | wc -l) >(grep FAILED | wc -l) >(grep PASSED |wc -l) >/dev/null | paste -sd "," -)
+          readarray -td, arr <<<"$results" #; declare -p arr
+          grade=$(python -c "print(round(0.0 if (${arr[0]} == 0) else ${arr[0]} * 100.0 / (${arr[0]} + ${arr[1]} + ${arr[2]})))")
+          echo "AUTO_GRADE=$grade" >> $GITHUB_ENV
+          line=$(cat ./README.md | grep -m 1 -E '^- ID#s:'| tr -dc '[., [:digit:]]')
+          IFS=" ," arr=($line)
+          echo "ID1=$(echo ${arr[0]})" >> $GITHUB_ENV
+          echo "ID2=$(echo ${arr[1]})" >> $GITHUB_ENV
+          echo "ID3=$(echo ${arr[2]})" >> $GITHUB_ENV
+          line=$(cat ./README.md | grep -m 1 -E '^- Github usernames:' | sed -n -e 's/^.*- Github usernames://p' | sed 's/,/ /g')
+          arr=($line)
+          echo "GHUSER1=$(echo ${arr[0]})" >> $GITHUB_ENV
+          echo "GHUSER2=$(echo ${arr[1]})" >> $GITHUB_ENV
+          echo "GHUSER3=$(echo ${arr[2]})" >> $GITHUB_ENV
+          echo "COURSE_TAG=$(python .github/scripts/check-course-tag.py ${{ env.BRANCH_NAME }})" >> $GITHUB_ENV
+      - name: Validate Student Ids
+        run: |
+          echo "ID1_VALID=$(python .github/scripts/check-il-id.py ${{ env.ID1 }})" >> $GITHUB_ENV
+          echo "ID2_VALID=$(python .github/scripts/check-il-id.py ${{ env.ID2 }})" >> $GITHUB_ENV
+          echo "ID3_VALID=$(python .github/scripts/check-il-id.py ${{ env.ID3 }})" >> $GITHUB_ENV
+      - name: Stop on Non-valid Student Ids
+        uses: actions/github-script@v6
+        with:
+          script: |
+              if ( ${{ env.ID1_VALID }} !== 0 ) {
+                core.setFailed('Student ID ${{ env.ID1 }} in main README file is invalid or empty!')
+              }
+              if ( ${{ env.ID2_VALID }} > 0 ) {
+                core.setFailed('Student ID ${{ env.ID2 }} in main README file is invalid!')
+              }
+              if ( ${{ env.ID3_VALID }} > 0 ) {
+                core.setFailed('Student ID ${{ env.ID3 }} in main README file is invalid!')
+              }
+      - name: Get Submission Time
+        id: time
+        uses: nanzm/get-time-action@v1.1
+        with:
+          timeZone: 2
+          format: 'YYYY/MM/DD HH:mm:ss'
+      - name: Prepare Json and key
+        run: |
+          JSON="[[ \"${{ env.TIME }}\", \"${{ env.BRANCH_NAME }}\", \"${{ env.ID1 }}\", \"${{ env.ID2 }}\", \"${{ env.ID3 }}\", \"${{ env.GHUSER1 }}\", \"${{ env.GHUSER2 }}\", \"${{ env.GHUSER3 }}\", \"${{ env.AUTO_GRADE }}\", \"\", \"${{ env.PR_URL }}\", \"${{ env.COURSE_TAG }}\" ]]"
+          echo "COMMAND_DATA=$(echo $JSON)" >> $GITHUB_ENV
+          chmod +x ./.github/scripts/decrypt.bash
+          ./.github/scripts/decrypt.bash
+          echo "GSHEET_PRIVATE_KEY=$(cat ./.github/scripts/key.json)" >> $GITHUB_ENV
+        env:
+          TIME: "${{ steps.time.outputs.time }}"
+          PR_URL: "https://github.com/${{ github.repository }}/pull/${{ github.event.number }}" 
+      - name: Update Sheet
+        id: 'update_worksheet'
+        if: github.event.pull_request.draft == false
+        uses: jroehl/gsheet.action@v1.1.0
+        with:
+          spreadsheetId: 1czssmXvpkNJjT1ZPLooEHYFV-BlDLbuFf8oueYZV7wc
+          commands: | 
+            [
+              { 
+                "command": "appendData", 
+                "args": { "worksheetTitle": "2024a", "minCol": "1",
+                          "data": ${{ env.COMMAND_DATA }} }
+              }
+            ]
+        env:
+          GSHEET_CLIENT_EMAIL: githubactions@github-action-340013.iam.gserviceaccount.com 
+      - name: Add fun gif
+        if: ${{ env.AUTO_GRADE == '100.0' && github.event.pull_request.draft == false }}
+        uses: koushikmohan1996/action-pr-gifs@V1.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Comment on PR
+        if: github.event.pull_request.draft == false
+        uses: thollander/actions-comment-pull-request@main
+        with:
+          message: |
+            Hello,
+            Congratulaions for submitting your project by this pull request (PR).
+            :eyes:
+            Automatic grade for students:
+            ${{ env.GHUSER1 }}:${{ env.ID1 }} ${{ env.GHUSER2 }}:${{ env.ID2 }} ${{ env.GHUSER3 }}${{ env.ID3 }},
+            Is: ${{ env.AUTO_GRADE }}.
+            :rocket:
+            Note, that this grade is still due to a manual review.
+            You can close and merge the request, but do not delete the branch at least untuil the manual review is over.
+            Good luck with your next projects!
+            Course Team
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Comment on Draft PR
+        if: github.event.pull_request.draft == true
+        uses: thollander/actions-comment-pull-request@main
+        with:
+          message: |
+            Hello,
+            Your calculated grade is currently: ${{ env.AUTO_GRADE }}.
+            Don't forget to submit with a regular pull request.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,6 @@
+###### Requirements without Version Specifiers ######
+pytest
+pytest-cov
+jupyter
+nbconvert
+flake8
