@@ -4,17 +4,17 @@ See also the course syllabus, submission instructions, and [wiki](https://github
 
 ### Developers Details
 Please keep exact template of rows below, including the comma separating the items.
-- Names: , 
-- ID#s: , 
-- Github usernames: ,
+- Names: Sarah Edery, 
+- ID#s: 325031029, 
+- Github usernames: sarahed123,
 
 ### Tools Setup
 - [x] Install course tools (see list and links in the course instructions document), and have a github user name with course team aceess
-- [ ] `Fork` (actually `Create`) the [course repository](https://github.com/jce-il/nand2tetris24a) to your account
-  - [ ] Creation changes: make sure to keep the original repository name and also to make it private
-- [ ] Apply other repository settings:
-  - [ ] Settings -> Access: Collaborators and Teams -> Manage Access -> add your collaborator
-- [ ] `Clone` the repository to your machine, and:
+- [x] `Fork` (actually `Create`) the [course repository](https://github.com/jce-il/nand2tetris24a) to your account
+  - [x] Creation changes: make sure to keep the original repository name and also to make it private
+- [x] Apply other repository settings:
+  - [x] Settings -> Access: Collaborators and Teams -> Manage Access -> add your collaborator
+- [x] `Clone` the repository to your machine, and:
   - Open the repository folder with your IDE (in VSCode, allow installing the suggested course extentions, and examine the suggested `./vscode/settings.json`)
   - Install needed python packages, e.g., run in the repository folder: `python -m pip install -r requirements.txt`
 
@@ -22,13 +22,13 @@ Please keep exact template of rows below, including the comma separating the ite
   - Here you hava a checklist of the various project tasks. See more details in the course instructions (also explained at [Project 00 folder](./projects/00/), in the html file that contains instructions, opened locally at your browser)
   - As you progress with these tasks, mark completion by adding `x` to the starting `[ ]`, like this `[x]`
   - Start running the project tests, by the Testing Activity Bar of VSCode, or the Run Activity/Menu (`Ctrl+F5`)->"Run Auto Tester" (while a file from the 00 project is in focus) or with the (internal) terminal: `python ./projects/00/test_00.py`
-  - [ ] The first test, ensures that you marked applying the above necessary repository settings after forking
-  - [ ] 1. Run the first course tool (HardwareSimulator on the Xor chip), and make its test pass
-  - [ ] 2. Complete the [github introduction](https://github.com/skills/introduction-to-github) course, and update your course pull request url in the included .txt file
-  - [ ] 3. Complete the [git-it](https://github.com/jlord/git-it-electron/releases) course, and add the screen capture to the project folder
-  - [ ] 4. Create a new branch named: 00, and commit your work for every valuable step
+  - [x] The first test, ensures that you marked applying the above necessary repository settings after forking
+  - [x] 1. Run the first course tool (HardwareSimulator on the Xor chip), and make its test pass
+  - [x] 2. Complete the [github introduction](https://github.com/skills/introduction-to-github) course, and update your course pull request url in the included .txt file
+  - [x] 3. Complete the [git-it](https://github.com/jlord/git-it-electron/releases) course, and add the screen capture to the project folder
+  - [x] 4. Create a new branch named: 00, and commit your work for every valuable step
     - Test that by now your local git history continas at leaset 3 commits (`git log`).
-- [ ] Make sure you also updated the [Developer details](#developer-details) section above (and commit this change too!)
+- [x] Make sure you also updated the [Developer details](#developer-details) section above (and commit this change too!)
 
 - [ ] Push your work to your remote github repository (`git push -u origin 00`), and watch the auto tester action results
 - [ ] Submit your work by openning a pull request to *your* `main` branch, update there, the submission details (ids, effort, comments to tester), and watch for the automatic grader reaction and notifications
