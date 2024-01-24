@@ -4,9 +4,9 @@ See also the course syllabus, submission instructions, and [wiki](https://github
 
 ### Developers Details
 Please keep exact template of rows below, including the comma separating the items.
-- Names: Sarah Edery, 
-- ID#s: 325031029, 
-- Github usernames: sarahed123,
+- Names: Sarah Edery, Ayala Yerushalmi
+- ID#s: 325031029, 324283712
+- Github usernames: sarahed123, ayalaye
 
 ### Tools Setup
 - [x] Install course tools (see list and links in the course instructions document), and have a github user name with course team aceess
@@ -30,10 +30,10 @@ Please keep exact template of rows below, including the comma separating the ite
     - Test that by now your local git history continas at leaset 3 commits (`git log`).
 - [x] Make sure you also updated the [Developer details](#developer-details) section above (and commit this change too!)
 
-- [ ] Push your work to your remote github repository (`git push -u origin 00`), and watch the auto tester action results
-- [ ] Submit your work by openning a pull request to *your* `main` branch, update there, the submission details (ids, effort, comments to tester), and watch for the automatic grader reaction and notifications
-- [ ] Move to the next project by marging the last commits into `main` and opening a new branch `git switch -c 01`
-- [ ] Optional: if you want an automated email reminder for the course submissions, make also a change in the file `github\workflow\submit-reminder.yaml`
+- [x] Push your work to your remote github repository (`git push -u origin 00`), and watch the auto tester action results
+- [x] Submit your work by openning a pull request to *your* `main` branch, update there, the submission details (ids, effort, comments to tester), and watch for the automatic grader reaction and notifications
+- [x] Move to the next project by marging the last commits into `main` and opening a new branch `git switch -c 01`
+- [x] Optional: if you want an automated email reminder for the course submissions, make also a change in the file `github\workflow\submit-reminder.yaml`
 
 ### General Projects Task List
 - Start a project branch 'xx'
