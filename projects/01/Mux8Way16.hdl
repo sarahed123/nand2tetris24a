@@ -18,5 +18,11 @@ CHIP Mux8Way16 {
     OUT out[16];
 
     PARTS:
-    // Put your code here:
+
+     // First selection bit
+    Mux4Way16(a = a, b = b, c = c, d = d, sel = sel[0..1], out=muxABCD);
+    Mux4Way16(a = e, b = f, c = g, d = h, sel = sel[0..1], out=muxEFGH);
+
+    // Second selection bit
+    Mux16(a = muxABCD, b = muxEFGH, sel = sel[2], out=out);
 }
