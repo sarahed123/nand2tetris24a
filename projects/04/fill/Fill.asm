@@ -36,7 +36,7 @@
     M=0
 
 
-//fill the screen in black or white
+// fill the screen in black or white
 (FILL)
         
         @fillvalue

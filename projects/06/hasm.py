@@ -23,7 +23,7 @@ from sys import argv
 import re
 # HINT: these might be useful:
 # import string
-
+address_next = 16
 
 def read_asm_file(input_filename):
     """
@@ -68,7 +68,13 @@ def command_type(command):
     """
     # TODO Stage A: Categorize A_COMMAND and C_COMMAND
     # TODO Stage B: Categorize L_COMMAND
-    pass
+    if command[0] == '@':
+        return A_COMMAND 
+        # and command[:-1] == ')'  
+    elif command[0] == '(' and command[-1]  == ')':     
+        return L_COMMAND  
+    return C_COMMAND    
+
 
 
 def emit_C_instruction(command, output_file):
@@ -79,14 +85,25 @@ def emit_C_instruction(command, output_file):
     16 characters "0" and "1". Each line of the output file should consist
     of exactly one machine language instruction.
     """
+    codeTranslator = CodeTranslator()
+    dest, comp, jump = "000", "0000000" , "000"
+    components = re.split(r'[=;]', command)
+    if '=' in command and ';' in command: 
+        # print("components: ",componenets)
+        dest = codeTranslator.dest(components[0]) 
+        comp = codeTranslator.comp(components[1]) 
+        jump = codeTranslator.jump(components[2]) 
+        
+    elif '=' in command and ';' not in command:
+        dest = codeTranslator.dest(components[0]) 
+        comp = codeTranslator.comp(components[1]) 
+    elif ';' in command and '=' not in command:
+        comp = codeTranslator.comp(components[0]) 
+        jump = codeTranslator.jump(components[1])  
+    result = "111" + comp + dest + jump
 
-    # The CodeTranslator class, defined in hasmUtils.py, has methods
-    # dest(string), comp(string), and jump(string)
-    # to translate assembly mnemonics of each type into strings of 0 and 1.
-
-    # TODO Stage A: translate C command to machine instruction and write to file
-    # codeTranslator = CodeTranslator()
-    pass
+    output_file.write(result + "\n")
+    return result 
 
 
 def emit_A_instruction(command, symbol_table, output_file):
@@ -97,18 +114,44 @@ def emit_A_instruction(command, symbol_table, output_file):
     16 characters "0" and "1". Each line of the output file should consist
     of exactly one machine language instruction.
     """
+    global address_next
+    binary = 0
+    if command[1::] in symbol_table:
+        print("symbol_table: ", symbol_table)
+        binary = format(symbol_table.get(command[1::]),'016b')
+        print("@LOOP : ",binary)
+    elif all(char.isdigit() for char in command[1::]):
+        # print("without zeros: ", bin(int(command[1::]))[2:])
+        binary = format(int(command[1::]),'016b')
+        print("binary = ",binary)
+    else:# new variable
+        symbol_table[command[1::]] = address_next
+        binary = format(address_next,'016b')
+        address_next += 1
+        
+    output_file.write(binary + "\n")
+    return binary       
+    
+
 
     # TODO Stage A: translate A command to machine instruction and write to file
     # TODO Stage B: revise to handle labels as well as integer constants
-    pass
 
 
 def first_pass(command_list, symbol_table):
     """
     Given a list of commands, adds labels to the given symbol table.
     """
-    # TODO Stage B: Add labels to symbol table
-    pass
+    numLabels = 0
+    for index, command in enumerate(command_list):
+        print(index)
+        if command_type(command) == L_COMMAND:
+            label = command[1:-1]  # Extract label name without parentheses
+            next_command_index = index - numLabels
+            symbol_table[label] = next_command_index
+            numLabels += 1
+    
+   
 
 
 def second_pass(command_list, symbol_table, output_filename):
@@ -130,17 +173,18 @@ def second_pass(command_list, symbol_table, output_filename):
         elif command_type(command) == C_COMMAND:
             emit_C_instruction(command, output_file)
         # Note that we do not emit instructions for label commands
-
     output_file.close()
 
 
 def main():
     # Get input and output filenames
     input_filename = argv[1]
+    print("input_filename_type: ", type(input_filename))
     match = re.match(r'^(.*)\.asm$', input_filename)
     if not match:
         FatalError(input_filename + " is not an asm file")
     output_filename = match.groups()[0] + ".hack"
+    print("output_filename_type: ", type(output_filename))
 
     # Create a symbol table with predefined symbols
     symbol_table = init_symbol_table()
