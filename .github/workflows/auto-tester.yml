@@ -47,7 +47,7 @@ jobs:
           repository: jce-il/${{ env.REPO_NAME }}
           fetch-depth: 1 # default
           path: upstream
-          token: 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
+          token: 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
       - name: get the origin test_XX.py file with a personal acess token (Settings/Developer Settings)
         run : |
           cd upstream
