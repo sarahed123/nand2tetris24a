@@ -65,8 +65,10 @@ class CodeWriter(object):
         code should be a string containing ASM commands separated by commas,
         e.g., "@10, D=D+A, @0, M=D"
         """
+        
         code = code.replace(',', '\n').replace(' ', '')
         self.file.write(code + '\n')
+
 
     def _writeComment(self, comment):
         """
@@ -81,7 +83,14 @@ class CodeWriter(object):
         onto the stack.
         TODO - Stage I - see Figure 7.2
         """
-        pass
+        asm_code = "@SP, A=M, M=D, @SP, M=M+1"
+        self._writeCode(asm_code)
+        return asm_code
+        # self.write('@SP') # Get current stack pointer
+        # self.write('A=M') # Set address to current stack pointer
+        # self.write('M=D') # Write data to top of stack
+        # self.write('@SP') # Increment SP
+        # self.write('M=M+1')
 
     def _popD(self):
         """"
@@ -89,74 +98,143 @@ class CodeWriter(object):
         into the D register.
         TODO - Stage I - see Figure 7.2
         """
-        pass
+        asm_code = "@SP, M=M-1, A=M, D=M"
+        self._writeCode(asm_code)
+        return asm_code
+        # self.write('@SP')
+        # self.write('M=M-1') # Decrement SP
+        # self.write('A=M') # Set address to current stack pointer
+        # self.write('D=M') # Get data from top of stack
 
+    
+        '''Resolve address to A register'''
+        addresses={
+            'local': 'LCL', # Base R1
+            'argument': 'ARG', # Base R2
+            'this': 'THIS', # Base R3
+            'that': 'THAT', # Base R4
+            'pointer': 3, # Edit R3, R4
+            'temp': 5, # Edit R5-12
+            # R13-15 are free
+            'static': 16, # Edit R16-255
+        }
+        address = addresses.get(segment)
+        if segment == 'constant':
+            self._writeCode('@' + str(index))
+        elif segment == 'static':
+            self._writeCode('@' + self.curr_file + '.' + str(index))
+        elif segment in ['pointer', 'temp']:
+            self._writeCode('@R' + str(address + int(index))) # Address is an int
+        elif segment in ['local', 'argument', 'this', 'that']:
+            self._writeCode('@' + address) # Address is a string
+            self._writeCode('D=M')
+            self._writeCode('@' + str(index))
+            self._writeCode('A=D+A') # D is segment base
+        else:
+            raise ValueError('{} is an invalid argument'.format(segment))
+  
     def writeArithmetic(self, command):
         """
         Writes Hack assembly code for the given command.
-        TODO - Stage I - see Figure 7.5
         """
         self._writeComment(command)
 
-        if command == T_ADD:
-            pass
-        elif command == T_SUB:
-            pass
-        elif command == T_NEG:
-            pass
-        elif command == T_EQ:
-            pass
-        elif command == T_GT:
-            pass
-        elif command == T_LT:
-            pass
-        elif command == T_AND:
-            pass
-        elif command == T_OR:
-            pass
-        elif command == T_NOT:
-            pass
+        if command in [T_ADD, T_SUB, T_AND, T_OR]:
+            op = "+" if command == T_ADD else "-" if command == T_SUB else "&" if command == T_AND else "|"
+            self._writeCode("@SP")
+            self._writeCode("AM=M-1")
+            self._writeCode("D=M")
+            self._writeCode("A=A-1")
+            self._writeCode(f"M=M{op}D")
+        elif command in [T_NEG, T_NOT]:
+            op = "-" if command == T_NEG else "!"
+            self._writeCode("@SP")
+            self._writeCode("A=M-1")
+            self._writeCode(f"M={op}M")
+        elif command in [T_EQ, T_GT, T_LT]:
+            jump = "JEQ" if command == T_EQ else "JGT" if command == T_GT else "JLT"
+            true_label = self._uniqueLabel()
+            end_label = self._uniqueLabel()
+            self._writeCode("@SP")
+            self._writeCode("AM=M-1")
+            self._writeCode("D=M")
+            self._writeCode("A=A-1")
+            self._writeCode("D=M-D")
+            self._writeCode(f"@{true_label}")
+            self._writeCode(f"D;{jump}")
+            self._writeCode("D=0")
+            self._writeCode(f"@{end_label}")
+            self._writeCode("0;JMP")
+            self._writeCode(f"({true_label})")
+            self._writeCode("D=-1")
+            self._writeCode(f"({end_label})")
+            self._writeCode("@SP")
+            self._writeCode("A=M-1")
+            self._writeCode("M=D")
         else:
-            raise (ValueError, 'Bad arithmetic command')
-
+            raise ValueError('Bad arithmetic command')
+             
     def writePushPop(self, commandType, segment, index):
         """
         Write Hack code for 'commandType' (C_PUSH or C_POP).
         'segment' (string) is the segment name.
         'index' (int) is the offset in the segment.
-        e.g., for the VM instruction "push constant 5",
-        segment has the value "constant" and index has the value 5.
-        TODO - Stage I - push constant only
-        TODO - Stage II - See Figure 7.6 and pp. 142-3
         """
+        segmentMap = {
+            "argument": "ARG",
+            "local": "LCL",
+            "this": "THIS",
+            "that": "THAT"
+        }
         if commandType == C_PUSH:
             self._writeComment("push %s %d" % (segment, index))
-
             if segment == T_CONSTANT:
-                pass
+                self._writeCode("@" + str(index))   # Load constant value
+                self._writeCode("D=A")              # Set D to the constant value
             elif segment == T_STATIC:
-                pass
+                self._writeCode("@" + self.fileName + "." + str(index))  # Load static variable address
+                self._writeCode("D=M")              # Set D to the value at that address
             elif segment == T_POINTER:
-                pass
+                self._writeCode("@" + str(3 + index))  # Load base address of THIS or THAT
+                self._writeCode("D=M")              # Set D to the value at that address
             elif segment == T_TEMP:
-                pass
+                self._writeCode("@" + str(5 + index))  # Load base address of temp segment
+                self._writeCode("D=M")              # Set D to the value at that address   
             else:  # argument, local, this, that
-                pass
-
+                self._writeCode("@" + segmentMap[segment])  # Load base address of segment
+                self._writeCode("D=M")              # Set D to the value at that address
+                self._writeCode("@" + str(index))   # Load index
+                self._writeCode("A=D+A")            # Add index to base address
+                self._writeCode("D=M")              # Set D to the value at that address
+            self._pushD()    
         elif commandType == C_POP:
             self._writeComment("pop %s %d" % (segment, index))
-
             if segment == T_STATIC:
-                pass
+                self._popD()                        # Pop value from stack to D
+                self._writeCode("@" + self.fileName + "." + str(index))  # Load static variable address
+                self._writeCode("M=D")              # Set the value at that address to the value in D
             elif segment == T_POINTER:
-                pass
+                self._popD()                        # Pop value from stack to D
+                self._writeCode("@" + str(3 + index))  # Load base address of THIS or THAT
+                self._writeCode("M=D")              # Set the value at that address to the value in D
             elif segment == T_TEMP:
-                pass
+                self._popD()                        # Pop value from stack to D
+                self._writeCode("@" + str(5 + index))  # Load base address of temp segment
+                self._writeCode("M=D")              # Set the value at that address to the value in D
             else:  # argument, local, this, that
-                pass
-
+                self._writeCode("@" + segmentMap[segment])  # Load base address of segment
+                self._writeCode("D=M")              # Set D to the value at that address
+                self._writeCode("@" + str(index))   # Load index
+                self._writeCode("D=D+A")            # Add index to base address
+                self._writeCode("@R13")             # Load R13 (general-purpose register)
+                self._writeCode("M=D")              # Store the calculated address in R13
+                self._popD()                        # Pop value from stack to D
+                self._writeCode("@R13")             # Load R13
+                self._writeCode("A=M")              # Go to the address stored in R13
+                self._writeCode("M=D")              # Set the value at that address to the value in D
         else:
-            raise (ValueError, 'Bad push/pop command')
+            raise ValueError('Bad push/pop command')
+
 
     # Functions below this comment are for Project 08. Ignore for Project 07.
     def writeInit(self):
@@ -224,3 +302,4 @@ class CodeWriter(object):
         self._writeComment("function %s %d" % (functionName, numLocals))
         self.functionName = functionName  # For local labels
         pass
+
