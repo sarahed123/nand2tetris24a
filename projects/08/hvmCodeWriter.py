@@ -13,7 +13,7 @@ from hvmCommands import *
 # then the VM commands will be written as comments into the output ASM file.
 debug = True
 
-
+unique_labels = {}
 class CodeWriter(object):
 
     def __init__(self, outputName):
@@ -22,7 +22,6 @@ class CodeWriter(object):
         """
         self.file = open(outputName, 'w')
         self.setFileName(outputName)
-
         # used to generate unique labels
         self.labelNumber = 0
         self.functionName = ""
@@ -50,8 +49,16 @@ class CodeWriter(object):
 
 
     def _uniqueLabel(self):
-        self.labelNumber += 1
-        return "label" + str(self.labelNumber)
+        """
+        Generates a unique label for the current function.
+        Uses a dictionary to store labels for each function.
+        """
+        if self.functionName not in unique_labels:
+            unique_labels[self.functionName] = 0
+        unique_labels[self.functionName] += 1
+        return self.functionName + "_" + str(unique_labels[self.functionName])
+        # self.labelNumber += 1
+        # return "label" + str(self.labelNumber)
 
     def write(self, text):
         """
@@ -101,38 +108,7 @@ class CodeWriter(object):
         asm_code = "@SP, M=M-1, A=M, D=M"
         self._writeCode(asm_code)
         return asm_code
-        # self.write('@SP')
-        # self.write('M=M-1') # Decrement SP
-        # self.write('A=M') # Set address to current stack pointer
-        # self.write('D=M') # Get data from top of stack
-
-    
-        '''Resolve address to A register'''
-        addresses={
-            'local': 'LCL', # Base R1
-            'argument': 'ARG', # Base R2
-            'this': 'THIS', # Base R3
-            'that': 'THAT', # Base R4
-            'pointer': 3, # Edit R3, R4
-            'temp': 5, # Edit R5-12
-            # R13-15 are free
-            'static': 16, # Edit R16-255
-        }
-        address = addresses.get(segment)
-        if segment == 'constant':
-            self._writeCode('@' + str(index))
-        elif segment == 'static':
-            self._writeCode('@' + self.curr_file + '.' + str(index))
-        elif segment in ['pointer', 'temp']:
-            self._writeCode('@R' + str(address + int(index))) # Address is an int
-        elif segment in ['local', 'argument', 'this', 'that']:
-            self._writeCode('@' + address) # Address is a string
-            self._writeCode('D=M')
-            self._writeCode('@' + str(index))
-            self._writeCode('A=D+A') # D is segment base
-        else:
-            raise ValueError('{} is an invalid argument'.format(segment))
-  
+        
     def writeArithmetic(self, command):
         """
         Writes Hack assembly code for the given command.
@@ -237,69 +213,161 @@ class CodeWriter(object):
 
 
     # Functions below this comment are for Project 08. Ignore for Project 07.
+   
     def writeInit(self):
         """
         Writes assembly code that effects the VM initialization,
         also called bootstrap code. This code must be placed
         at the beginning of the output file.
         See p. 165, "Bootstrap Code"
-        TODO - Stage IV
         """
         self._writeComment("Init")
-        pass
+        # Initialize stack pointer (SP)
+        self._writeCode("@256")
+        self._writeCode("D=A")
+        self._writeCode("@SP")
+        self._writeCode("M=D")
+        # Call Sys.init
+        self.writeCall("Sys.init", 0)
 
     def writeLabel(self, label):
         """
         Writes assembly code that effects the label command.
         See section 8.2.1 and Figure 8.6.
-        TODO - Stage III
         """
         self._writeComment("label %s" % (label))
-        pass
-
+        self._writeCode("(%s)" % label)
+      
     def writeGoto(self, label):
         """
         Writes assembly code that effects the goto command.
         See section 8.2.1 and Figure 8.6.
-        TODO - Stage III
         """
         self._writeComment("goto %s" % (label))
-        pass
+        self._writeCode("@%s" % label)
+        self._writeCode("0;JMP")
 
     def writeIf(self, label):
         """
         Writes assembly code that effects the if-goto command.
         See section 8.2.1 and Figure 8.6.
-        TODO - Stage III
         """
         self._writeComment("if-goto %s" % (label))
-        pass
-
+        self._popD()
+        self._writeCode("@%s" % label)
+        self._writeCode("D;JNE")
+ 
     def writeCall(self, functionName, numArgs):
         """
         Writes assembly code that effects the call command.
         See Figures 8.5 and 8.6.
-        TODO - Stage IV
         """
         self._writeComment("call %s %d" % (functionName, numArgs))
-        pass
+        # Return address
+        return_label = self._uniqueLabel()
+        self._writeCode("@%s" % return_label)
+        self._writeCode("D=A")
+        self._pushD()
+        # Save state
+        self._pushState("LCL")
+        self._pushState("ARG")
+        self._pushState("THIS")
+        self._pushState("THAT")
+        # Reposition ARG
+        self._writeCode("@SP")
+        self._writeCode("D=M")
+        self._writeCode("@%d" % (numArgs + 5))
+        self._writeCode("D=D-A")
+        self._writeCode("@ARG")
+        self._writeCode("M=D")
+        # Reposition LCL
+        self._writeCode("@SP")
+        self._writeCode("D=M")
+        self._writeCode("@LCL")
+        self._writeCode("M=D")
+        # Goto function
+        self._writeCode("@%s" % functionName)
+        self._writeCode("0;JMP")
+        # Return address label
+        self._writeCode("(%s)" % return_label)
 
     def writeReturn(self):
         """
         Writes assembly code that effects the return command.
         See Figure 8.5.
-        TODO - Stage IV
         """
         self._writeComment("return")
-        pass
+        # FRAME = LCL
+        self._writeCode("@LCL")
+        self._writeCode("D=M")
+        self._writeCode("@R13")  # FRAME is stored in R13
+        self._writeCode("M=D")
+        # RET = *(FRAME-5)
+        self._writeCode("@5")
+        self._writeCode("A=D-A")
+        self._writeCode("D=M")
+        self._writeCode("@R14")  # RET is stored in R14
+        self._writeCode("M=D")
+        # *ARG = pop()
+        self._popD()
+        self._writeCode("@ARG")
+        self._writeCode("A=M")
+        self._writeCode("M=D")
+        # SP = ARG + 1
+        self._writeCode("@ARG")
+        self._writeCode("D=M+1")
+        self._writeCode("@SP")
+        self._writeCode("M=D")
+        # THAT = *(FRAME - 1)
+        self._writeRestoreSegment("THAT", 1)
+        # THIS = *(FRAME - 2)
+        self._writeRestoreSegment("THIS", 2)
+        # ARG = *(FRAME - 3)
+        self._writeRestoreSegment("ARG", 3)
+        # LCL = *(FRAME - 4)
+        self._writeRestoreSegment("LCL", 4)
+        # goto RET
+        self._writeCode("@R14")
+        self._writeCode("A=M")
+        self._writeCode("0;JMP")
 
     def writeFunction(self, functionName, numLocals):
         """
         Writes assembly code that effects the call command.
         See Figures 8.5 and 8.6.
-        TODO - Stage IV
         """
         self._writeComment("function %s %d" % (functionName, numLocals))
-        self.functionName = functionName  # For local labels
-        pass
+        self._writeCode("(%s)" % functionName)
+        for _ in range(numLocals):
+            self._writeCode("@SP")
+            self._writeCode("A=M")
+            self._writeCode("M=0")
+            self._writeCode("@SP")
+            self._writeCode("M=M+1")
+   
+    
+    def _pushState(self, segment):
+        """
+        Pushes the value of the given segment onto the stack.
+        Used by writeCall.
+        """
+        self._writeCode("@%s" % segment)
+        self._writeCode("D=M")
+        self._pushD()
 
+    def _writeRestoreSegment(self, segment, offset):
+        """
+        Writes assembly code to restore a segment's value.
+        Used by writeReturn.
+        """
+        self._writeCode("@R13")
+        self._writeCode("D=M")
+        self._writeCode("@%d" % offset)
+        self._writeCode("A=D-A")
+        self._writeCode("D=M")
+        self._writeCode("@%s" % segment)
+        self._writeCode("M=D")
+
+
+    
+    
