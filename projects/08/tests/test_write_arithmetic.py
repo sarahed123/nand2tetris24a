@@ -37,6 +37,13 @@ def test_arithmatic_add_command_is_recognized(temp_output):
     assert '@SP' in temp_output.read_text(encoding="utf-8")  # only a start
 
 
+def test_write_push_pop_returns_fixed_string_comand2(temp_output):
+    codewriter = CodeWriter(temp_output)  # temp_output is only used here to satisfy the constructor parameter
+    codewriter.writePushPop(C_POP,'this',3)  # we can debate if testing internals/fix values is encouraged/necessary
+    codewriter.close()
+    assert '@R13' in temp_output.read_text(encoding="utf-8") 
+
+
     
 
 
